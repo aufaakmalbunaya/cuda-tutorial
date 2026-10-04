@@ -36,11 +36,11 @@ nvcc -std=c++17 -O3 -lineinfo -arch=native src/vector_add.cu -o vector_add
 
 ## Key results (Tesla T4, medians)
 
-- **Exercise 4** (vector add, n=10⁷): kernel-only speedup **19.3×** vs CPU,
-  but transfer-inclusive operation speedup only **0.34×** — PCIe transfer
+- **Exercise 4** (vector add, n=10⁷): kernel-only speedup **19.1×** vs CPU,
+  but transfer-inclusive operation speedup only **0.32×** — PCIe transfer
   dominates unless data stays resident on the device.
-- **Exercise 5** (grid-stride, n=10⁶): best launch 256 blocks × 256 threads →
-  **226 GB/s** effective bandwidth; worst 64×64 → 72 GB/s (3.2× gap).
+- **Exercise 5** (grid-stride, n=10⁶): best launch 256 blocks × 128 threads →
+  **232.6 GB/s** effective bandwidth; worst 64×64 → 72.2 GB/s (3.2× gap).
 - **Exercise 7** (matmul): tiled 16×16 beats naive by ~1.5× —
   N=512: **482.6 vs 312.1 GFLOP/s**, all 30 runs error-free.
 - **Exercise 8**: `compute-sanitizer` clean on correct programs; caught an

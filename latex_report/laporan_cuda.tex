@@ -112,12 +112,16 @@ Platform eksekusi & Notebook Kaggle, akselerator GPU\\
 \section{Exercise 1: Inspeksi GPU yang tersedia}
 Berkas: \texttt{src/device\_info.cu}. Program memanggil \cmd{cudaGetDeviceProperties} dan mencetak properti device 0. Hasilnya sesuai Tabel~\ref{tab:env}: Tesla T4 dengan compute capability 7.5, 40 SM, dan memori global 14.56 GiB. Flag \cmd{-arch=native} pada nvcc 12.8 berhasil dipakai langsung pada T4 tanpa perlu menentukan \cmd{sm\_75} secara manual.
 
+\plotfig{0.95\linewidth}{screenshots/shot_01_device.png}{Output nyata program inspeksi device: Tesla T4, compute capability 7.5, 40 SM.}
+
 \section{Exercise 2: Kernel pertama}
 Berkas: \texttt{src/hello\_gpu.cu}. Kernel \cmd{hello} menghitung indeks global \cmd{i = blockIdx.x * blockDim.x + threadIdx.x} dan mencetak \cmd{block}, \cmd{local} (threadIdx.x), dan \cmd{global} hanya bila \cmd{i < n}. Dengan \cmd{n=20} dan 8 thread per block, dibutuhkan 3 block sehingga 24 thread diluncurkan dan 20 di antaranya aktif; guard \cmd{i < n} mencegah 4 thread sisa menulis/mencetak di luar rentang.
 
 Satu detail menarik dari output nyata: baris \cmd{block=2} tercetak \emph{sebelum} \cmd{block=0} --- urutan \cmd{printf} antar block tidak deterministik karena block dieksekusi sejajar oleh SM yang berbeda. Host mencetak konfirmasi setelah \cmd{cudaDeviceSynchronize}.
 
 Varian modifikasi (\texttt{src/hello\_gpu\_17.cu}, \cmd{n=17}, 16 thread per block): tepat 2 block diluncurkan (32 thread), 17 aktif, sesuai prediksi \cmd{ceil(17/16) = 2}.
+
+\plotfig{0.95\linewidth}{screenshots/shot_02_hello.png}{Output nyata kernel pertama (n=20, 8 thread per block): urutan \cmd{printf} antar block tidak deterministik.}
 
 \section{Exercise 3: Penjumlahan vektor dengan memori device eksplisit}
 Berkas: \texttt{src/vector\_add.cu}. Alur program mengikuti tutorial: \cmd{cudaMalloc} untuk tiga vektor, \cmd{cudaMemcpy} host-ke-device, launch kernel \cmd{vec\_add} dengan 256 thread per block, \cmd{cudaMemcpy} device-ke-host, verifikasi terhadap hasil CPU, lalu \cmd{cudaFree}. Untuk \cmd{n=1000003} dipakai 3907 block, \cmd{errors=0}, dengan \cmd{first=0.00} dan \cmd{last=9.25} sesuai inisialisasi \cmd{a[i]=i*0.25f}, \cmd{b[i]=i*0.5f} (yakni \cmd{c[i]=0.75*i}).
@@ -140,6 +144,8 @@ Kasus \cmd{n=257} butuh 2 block; thread sisa pada block kedua ditangani guard ba
 
 Modifikasi (\texttt{src/vector\_add\_alpha.cu}): kernel diubah menjadi \cmd{c[i] = 2*a[i] + b[i]}; untuk \cmd{n=1000003} hasilnya \cmd{errors=0}.
 
+\plotfig{0.95\linewidth}{screenshots/shot_03_vecadd_edge.png}{Output nyata uji ukuran tepi vector add: seluruh ukuran \cmd{errors=0}.}
+
 \section{Exercise 4: Waktu kernel vs waktu termasuk transfer}
 Berkas: \texttt{src/vector\_benchmark.cu}. Program mengukur tiga hal dengan CUDA event: waktu kernel saja (\cmd{kernel}, hanya launch + eksekusi), waktu operasi penuh (\cmd{operation}: alokasi, dua H2D copy, kernel, satu D2H copy), dan waktu CPU sebagai pembanding. Dilaporkan dua speedup: \emph{resident-data speedup} = CPU/kernel (data sudah di device) dan \emph{operation speedup} = CPU/operation (termasuk transfer). Setiap ukuran dijalankan 5 kali; Tabel~\ref{tab:ex4} memakai median.
 
@@ -150,17 +156,19 @@ Berkas: \texttt{src/vector\_benchmark.cu}. Program mengukur tiga hal dengan CUDA
 \toprule
 \cmd{n} & CPU (ms) & kernel (ms) & operasi (ms) & speedup residu & speedup operasi\\
 \midrule
-1003 & 0.0004 & 0.0082 & 0.0443 & 0.05 & 0.01\\
-100003 & 0.0344 & 0.0162 & 0.4099 & 2.13 & 0.08\\
-1000003 & 0.5801 & 0.0525 & 3.0029 & 11.04 & 0.19\\
-10000003 & 8.8437 & 0.4576 & 25.9355 & 19.33 & 0.34\\
+1003 & 0.0004 & 0.0081 & 0.0446 & 0.05 & 0.01\\
+100003 & 0.0385 & 0.0144 & 0.4070 & 2.68 & 0.09\\
+1000003 & 0.5826 & 0.0489 & 3.0164 & 11.92 & 0.19\\
+10000003 & 8.7234 & 0.4574 & 27.5649 & 19.07 & 0.32\\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\plotfig{0.85\linewidth}{figures/vector_speedup.png}{Speedup GPU vs CPU terhadap ukuran vektor (median 5 run). Speedup kernel-only tumbuh hingga $\approx$19.3$\times$ pada $n=10^7$, tetapi speedup termasuk transfer tidak pernah melewati 1.}
+\plotfig{0.85\linewidth}{figures/vector_speedup.png}{Speedup GPU vs CPU terhadap ukuran vektor (median 5 run). Speedup kernel-only tumbuh hingga $\approx$19.1$\times$ pada $n=10^7$, tetapi speedup termasuk transfer tidak pernah melewati 1.}
 
-Dua batas waktu (\emph{timing boundaries}) didefinisikan eksplisit: \cmd{kernel} hanya melingkupi launch kernel (diukur dengan CUDA event, tanpa transfer), sedangkan \cmd{operation} mencakup alokasi device, copy H2D/D2H, dan kernel. Hasilnya menegaskan pelajaran utama exercise ini: kernel saja 19$\times$ lebih cepat dari CPU pada $n=10^7$, tetapi sekali transfer PCIe ikut dihitung, operasi penuh justru $\approx$3$\times$ \emph{lebih lambat} dari CPU (speedup 0.34). GPU menang besar hanya bila data residen di device dan dipakai ulang.
+\plotfig{0.95\linewidth}{screenshots/shot_04_bench.png}{Output nyata cell ringkasan Exercise 4: tabel median 5 run per ukuran.}
+
+Dua batas waktu (\emph{timing boundaries}) didefinisikan eksplisit: \cmd{kernel} hanya melingkupi launch kernel (diukur dengan CUDA event, tanpa transfer), sedangkan \cmd{operation} mencakup alokasi device, copy H2D/D2H, dan kernel. Hasilnya menegaskan pelajaran utama exercise ini: kernel saja 19$\times$ lebih cepat dari CPU pada $n=10^7$, tetapi sekali transfer PCIe ikut dihitung, operasi penuh justru $\approx$3$\times$ \emph{lebih lambat} dari CPU (speedup 0.32). GPU menang besar hanya bila data residen di device dan dipakai ulang.
 
 \section{Exercise 5: Kernel grid-stride, tuning launch, bandwidth efektif}
 Berkas: \texttt{src/vector\_gridstride.cu}. Kernel memakai pola \emph{grid-stride loop}: tiap thread memproses indeks \cmd{tid}, \cmd{tid+stride}, \cmd{tid+2*stride}, \ldots\ dengan \cmd{stride} sama dengan jumlah thread total, sehingga konfigurasi block/thread bebas dipilih tanpa mengubah kebenaran --- kernel tetap mencakup seluruh $n$ lewat stride. Bandwidth efektif dihitung sebagai $3 \times n \times 4$ byte (baca \cmd{a}, \cmd{b}, tulis \cmd{c}) dibagi waktu kernel.
@@ -174,23 +182,25 @@ Sweep 9 konfigurasi (64/128/256 block $\times$ 64/128/256 thread, 3 run tiap kon
 \toprule
 block & thread & kernel (ms) & bandwidth efektif (GB/s)\\
 \midrule
-256 & 256 & 0.0530 & 226.45\\
-128 & 256 & 0.0534 & 224.69\\
-256 & 128 & 0.0547 & 219.43\\
-64 & 256 & 0.0628 & 191.13\\
-128 & 128 & 0.0638 & 187.97\\
-256 & 64 & 0.0692 & 173.45\\
-128 & 64 & 0.0986 & 121.71\\
-64 & 128 & 0.1006 & 119.28\\
-64 & 64 & 0.1677 & 71.55\\
+256 & 128 & 0.0516 & 232.63\\
+128 & 256 & 0.0519 & 231.34\\
+256 & 256 & 0.0550 & 218.15\\
+64 & 256 & 0.0614 & 195.31\\
+128 & 128 & 0.0636 & 188.82\\
+256 & 64 & 0.0657 & 182.66\\
+128 & 64 & 0.1018 & 117.92\\
+64 & 128 & 0.1029 & 116.60\\
+64 & 64 & 0.1661 & 72.23\\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\plotfig{0.9\linewidth}{figures/gridstride_bw.png}{Bandwidth efektif terhadap konfigurasi launch (median 3 run, $n=1000003$). Konfigurasi 256 block $\times$ 256 thread tercepat (226 GB/s); 64 $\times$ 64 paling lambat (72 GB/s).}
+\plotfig{0.9\linewidth}{figures/gridstride_bw.png}{Bandwidth efektif terhadap konfigurasi launch (median 3 run, $n=1000003$). Konfigurasi 256 block $\times$ 128 thread tercepat (232.6 GB/s); 64 $\times$ 64 paling lambat (72.2 GB/s).}
 \label{fig:bw}
 
-Konfigurasi terbaik (256$\times$256, 226 GB/s) $\approx$3.2$\times$ lebih cepat dari yang terburuk (64$\times$64, 72 GB/s). Polanya jelas: thread block yang lebih besar (256) konsisten menang karena occupancy dan coalescing akses memori yang lebih baik; 65536 thread total (256$\times$256) memberi cukup paralelisme untuk menjenuhkan 40 SM pada T4.
+\plotfig{0.95\linewidth}{screenshots/shot_05_gridstride.png}{Output nyata cell ringkasan Exercise 5: tabel median 3 run per konfigurasi.}
+
+Konfigurasi terbaik (256$\times$128, 232.6 GB/s) $\approx$3.2$\times$ lebih cepat dari yang terburuk (64$\times$64, 72.2 GB/s). Polanya jelas: thread block yang lebih besar (128--256) konsisten menang karena occupancy dan coalescing akses memori yang lebih baik; 32768 thread total (256$\times$128) memberi cukup paralelisme untuk menjenuhkan 40 SM pada T4.
 
 \section{Exercise 6: Reduksi dengan shared memory}
 Berkas: \texttt{src/reduce\_sum.cu}. Tiap block mereduksi 256 elemen memakai array \emph{shared memory} 256 elemen, pola halving dengan \cmd{\_\_syncthreads()} tiap tahap, lalu menjumlahkan hasil per-block di host. Untuk \cmd{n=1000003}: \cmd{expected=3000003 result=3000003 match=yes}. Uji ukuran tepi semuanya cocok:
@@ -234,6 +244,8 @@ tiled & 512 & 0.5562 & 482.60\\
 \plotfig{0.95\linewidth}{figures/matmul_naive_tiled.png}{Waktu kernel (kiri, skala log) dan throughput (kanan) matmul naive vs tiled terhadap ukuran matriks (median 5 run).}
 \label{fig:mm}
 
+\plotfig{0.95\linewidth}{screenshots/shot_06_matmul.png}{Output nyata cell ringkasan Exercise 7: tabel median 5 run per varian per ukuran.}
+
 Varian tiled konsisten $\approx$1.5$\times$ lebih cepat (N=512: 0.556 ms vs 0.860 ms; 482.6 vs 312.1 GFLOP/s) karena ubin 16$\times$16 di shared memory memotong akses berulang ke memori global sebesar faktor 16. Seluruh 30 run benchmark \cmd{errors=0}.
 
 \section{Exercise 8: Diagnosis error dengan Compute Sanitizer}
@@ -244,6 +256,10 @@ Dua bug terkontrol kemudian disuntikkan pada \emph{salinan} berkas (aslinya tida
 \item \textbf{Tulis di luar batas} pada salinan \cmd{vector\_add} (indeks ditulis sejauh $n$ elemen melewati akhir buffer): sanitizer melaporkan \cmd{CUDA error: unspecified launch failure} dengan 97 error. Kernel yang menulis ke memori ilegal menggagalkan launch secara keseluruhan.
 \item \textbf{Menghapus barrier pertama} pada salinan \cmd{reduce\_sum}: \cmd{--tool racecheck} melaporkan hazard baca/tulis di baris 16 dan hasil reduksi salah (\cmd{result=2644645}, \cmd{expected=3000003}, \cmd{match=no}). Tanpa barrier, thread membaca \cmd{sdata} yang belum selesai ditulis thread lain --- race condition klasik yang hanya muncul pada eksekusi paralel.
 \end{enumerate}
+
+\plotfig{0.95\linewidth}{screenshots/shot_07_sanitizer.png}{Output nyata Compute Sanitizer: 0 error pada ketiga program yang benar.}
+
+\plotfig{0.95\linewidth}{screenshots/shot_08_bugs.png}{Output nyata dua bug terkontrol: out-of-bounds write (97 error, \emph{launch failure}) dan race condition reduksi (hazard + hasil salah).}
 
 \section{Mini-project: Stencil 2D lima titik}
 Berkas: \texttt{src/stencil.cu}. Kernel menerapkan stencil lima titik (tengah + atas/bawah/kiri/kanan) pada grid 2D; guard menangani tepi domain. Dua mode waktu diukur: \emph{resident} (satu H2D, $k$ langkah kernel, satu D2H) dan \emph{per-step} (transfer bolak-balik tiap langkah). Hasil pada Tabel~\ref{tab:stencil}, seluruhnya \cmd{errors=0} (verifikasi terhadap CPU).
@@ -263,10 +279,12 @@ $1024 \times 1024$, 20 langkah & 50.648 ms & 0.936 ms & 3.103 ms & 36.014 ms\\
 
 Pola Exercise 4 terulang dengan tajam: kernel residu 54$\times$ lebih cepat dari CPU pada $1024^2$, tetapi memindahkan data bolak-balik tiap langkah (36.0 ms) $\approx$12$\times$ lebih lambat dari strategi residu (3.1 ms). Untuk stencil iteratif, data \emph{harus} tinggal di device antar langkah.
 
-\section{Refleksi: perlambatan, perbaikan, dan bug}
-\textbf{Perlambatan --- transfer mendominasi.} Pada Exercise 4, speedup termasuk transfer tidak pernah melewati 1 (maksimum 0.34 pada $n=10^7$): operasi penuh justru $\approx$3$\times$ lebih lambat dari CPU meski kernelnya 19$\times$ lebih cepat. Stencil mengonfirmasi dari sisi lain: transfer per-langkah 12$\times$ lebih lambat dari eksekusi residu. Pelajarannya: bandwidth PCIe ($\approx$25 ms untuk 120 MB pada $n=10^7$) adalah biaya tetap yang hanya terbayar bila komputasi cukup besar atau data dipakai ulang.
+\plotfig{0.95\linewidth}{screenshots/shot_09_stencil.png}{Output nyata mini-project stencil: kedua ukuran \cmd{errors=0}.}
 
-\textbf{Perbaikan --- tiling dan tuning launch.} Tiled matmul mencapai 482.6 GFLOP/s vs 312.1 GFLOP/s naive pada N=512 (1.55$\times$) lewat pemakaian ulang data di shared memory. Pada grid-stride, konfigurasi 256$\times$256 (226 GB/s) mengalahkan 64$\times$64 (72 GB/s) sebesar 3.2$\times$ --- thread block besar memberi occupancy dan coalescing yang lebih baik pada 40 SM T4.
+\section{Refleksi: perlambatan, perbaikan, dan bug}
+\textbf{Perlambatan --- transfer mendominasi.} Pada Exercise 4, speedup termasuk transfer tidak pernah melewati 1 (maksimum 0.32 pada $n=10^7$): operasi penuh justru $\approx$3$\times$ lebih lambat dari CPU meski kernelnya 19$\times$ lebih cepat. Stencil mengonfirmasi dari sisi lain: transfer per-langkah 12$\times$ lebih lambat dari eksekusi residu. Pelajarannya: bandwidth PCIe ($\approx$28 ms untuk 120 MB pada $n=10^7$) adalah biaya tetap yang hanya terbayar bila komputasi cukup besar atau data dipakai ulang.
+
+\textbf{Perbaikan --- tiling dan tuning launch.} Tiled matmul mencapai 482.6 GFLOP/s vs 312.1 GFLOP/s naive pada N=512 (1.55$\times$) lewat pemakaian ulang data di shared memory. Pada grid-stride, konfigurasi 256$\times$128 (232.6 GB/s) mengalahkan 64$\times$64 (72.2 GB/s) sebesar 3.2$\times$ --- thread block besar memberi occupancy dan coalescing yang lebih baik pada 40 SM T4.
 
 \textbf{Bug yang didiagnosis --- ekspansi variabel IPython.} Pada run pertama, lima cell loop shell (\cmd{!for n in ...; do ... \$n ...; done}) semuanya berjalan dengan $n=10000003$: Jupyter mengintersep \cmd{\$n} dan menggantinya dengan variabel \emph{Python} \cmd{n} (bernilai 10000003 dari cell ringkasan), bukan variabel loop shell. Gejalanya jelas pada output: lima baris identik \cmd{n=10000003} dan, pada cell benchmark matriks, peringatan \emph{integer overflow} diikuti \cmd{CUDA error: invalid configuration argument} karena ukuran matriks menjadi $10000003 \times 10000003$. Diagnosis: \cmd{!} menjalankan perintah lewat IPython yang melakukan ekspansi \cmd{\$}; perbaikannya mengganti \cmd{!} dengan magic \cmd{\%\%bash} sehingga \cmd{\$n} menjadi milik bash sepenuhnya. Setelah perbaikan, seluruh ukuran/konfigurasi berjalan benar (20 run Exercise 4, 27 run Exercise 5, 30 run Exercise 7).
 

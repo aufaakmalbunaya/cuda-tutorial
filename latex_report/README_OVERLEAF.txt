@@ -10,11 +10,15 @@ figures/           : 3 plot dari DATA PENGUKURAN ASLI Tesla T4
                      (vector_speedup.png, matmul_naive_tiled.png,
                       gridstride_bw.png) — dirender matplotlib dari
                      77 pengukuran mentah (evidence/*.csv di repo GitHub)
+screenshots/       : 9 screenshot ASLI output notebook Kaggle yang
+                     tereksekusi (shot_01 - shot_09), diambil piksel-per-piksel
+                     dari render notebook hasil run di Tesla T4
 
 CARA KOMPILASI DI OVERLEAF
 --------------------------
 1. Upload laporan_cuda.tex sebagai main file.
-2. Upload folder figures/ beserta isinya (pertahankan struktur folder).
+2. Upload folder figures/ dan screenshots/ beserta isinya
+   (pertahankan struktur folder).
 3. Pilih compiler pdfLaTeX, lalu Recompile (2x untuk TOC final).
 
 CATATAN
