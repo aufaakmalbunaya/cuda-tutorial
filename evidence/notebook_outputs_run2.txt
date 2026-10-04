@@ -1,0 +1,411 @@
+
+===== cell 0 [MD] # GPU Programming Tutorial — CUDA C++ (Kaggle) =====
+
+===== cell 1 [MD] ## 0. Environment check =====
+
+----- cell 2 [CODE] !nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv
+name, memory.total [MiB], driver_version
+Tesla T4, 15360 MiB, 580.178.04
+Tesla T4, 15360 MiB, 580.178.04
+Cuda compilation tools, release 12.8, V12.8.93
+Build cuda_12.8.r12.8/compiler.35583870_0
+
+
+===== cell 3 [MD] ## Shared header (create once) =====
+
+----- cell 4 [CODE] %%writefile cuda_check.cuh
+Overwriting cuda_check.cuh
+
+
+===== cell 5 [MD] ## Exercise 1 — Inspect the available GPU =====
+
+----- cell 6 [CODE] %%writefile device_info.cu
+Overwriting device_info.cu
+
+
+----- cell 7 [CODE] !nvcc -std=c++17 -O3 -lineinfo -arch=native device_info.cu -o device_info
+Device: Tesla T4
+Compute capability: 7.5
+SM count: 40
+Warp size: 32
+Maximum threads per block: 1024
+Global memory: 14.56 GiB
+Shared memory per block: 49152 bytes
+
+
+===== cell 8 [MD] ## Exercise 2 — Launch a first kernel =====
+
+----- cell 9 [CODE] %%writefile hello_gpu.cu
+Overwriting hello_gpu.cu
+
+
+----- cell 10 [CODE] !nvcc -std=c++17 -O3 -lineinfo -arch=native hello_gpu.cu -o hello_gpu
+block=2 local=0 global=16
+block=2 local=1 global=17
+block=2 local=2 global=18
+block=2 local=3 global=19
+block=1 local=0 global=8
+block=1 local=1 global=9
+block=1 local=2 global=10
+block=1 local=3 global=11
+block=1 local=4 global=12
+block=1 local=5 global=13
+block=1 local=6 global=14
+block=1 local=7 global=15
+block=0 local=0 global=0
+block=0 local=1 global=1
+block=0 local=2 global=2
+block=0 local=3 global=3
+block=0 local=4 global=4
+block=0 local=5 global=5
+block=0 local=6 global=6
+block=0 local=7 global=7
+Host: the kernel has finished.
+
+
+===== cell 11 [MD] ### Variant: n=17, threads=16 (predict: 2 blocks, 32 threads launched, 17 active) =====
+
+----- cell 12 [CODE] %%writefile hello_gpu_17.cu
+Overwriting hello_gpu_17.cu
+
+
+----- cell 13 [CODE] !nvcc -std=c++17 -O3 -lineinfo -arch=native hello_gpu_17.cu -o hello_gpu_17
+n=17 threads=16 blocks=2 launched=32
+block=1 local=0 global=16
+block=0 local=0 global=0
+block=0 local=1 global=1
+block=0 local=2 global=2
+block=0 local=3 global=3
+block=0 local=4 global=4
+block=0 local=5 global=5
+block=0 local=6 global=6
+block=0 local=7 global=7
+block=0 local=8 global=8
+block=0 local=9 global=9
+block=0 local=10 global=10
+block=0 local=11 global=11
+block=0 local=12 global=12
+block=0 local=13 global=13
+block=0 local=14 global=14
+block=0 local=15 global=15
+Host: the kernel has finished.
+
+
+===== cell 14 [MD] ## Exercise 3 — Vector add with explicit device memory =====
+
+----- cell 15 [CODE] %%writefile vector_add.cu
+Overwriting vector_add.cu
+
+
+----- cell 16 [CODE] !nvcc -std=c++17 -O3 -lineinfo -arch=native vector_add.cu -o vector_add
+n=1000003 blocks=3907 threads=256 errors=0
+first=0.00 last=9.25
+
+
+===== cell 17 [MD] ### Edge sizes (recompile per size, as the tutorial asks) =====
+
+----- cell 18 [CODE] %%bash
+n=1 blocks=1 threads=256 errors=0
+first=0.00 last=0.00
+n=255 blocks=1 threads=256 errors=0
+first=0.00 last=18.00
+n=256 blocks=1 threads=256 errors=0
+first=0.00 last=18.75
+n=257 blocks=2 threads=256 errors=0
+first=0.00 last=19.50
+n=1000003 blocks=3907 threads=256 errors=0
+first=0.00 last=9.25
+
+
+===== cell 19 [MD] ### Modification: c[i] = 2*a[i] + b[i] =====
+
+----- cell 20 [CODE] %%writefile vector_add_alpha.cu
+Overwriting vector_add_alpha.cu
+
+
+----- cell 21 [CODE] !nvcc -std=c++17 -O3 -lineinfo -arch=native vector_add_alpha.cu -o vector_add_alpha
+alpha=2: n=1000003 blocks=3907 threads=256 errors=0
+
+
+===== cell 22 [MD] ## Exercise 4 — Kernel time vs transfer-inclusive time =====
+
+----- cell 23 [CODE] %%writefile vector_benchmark.cu
+Overwriting vector_benchmark.cu
+
+
+----- cell 24 [CODE] %%bash
+n=1003 CPU=0.000427 ms kernel=0.007872 ms operation=0.044141 ms
+resident-data speedup=0.054 operation speedup=0.010
+errors=0
+n=1003 CPU=0.000384 ms kernel=0.007776 ms operation=0.043508 ms
+resident-data speedup=0.049 operation speedup=0.009
+errors=0
+n=1003 CPU=0.000474 ms kernel=0.008224 ms operation=0.045788 ms
+resident-data speedup=0.058 operation speedup=0.010
+errors=0
+n=1003 CPU=0.000428 ms kernel=0.008160 ms operation=0.045078 ms
+resident-data speedup=0.052 operation speedup=0.009
+errors=0
+n=1003 CPU=0.000436 ms kernel=0.008288 ms operation=0.044308 ms
+resident-data speedup=0.053 operation speedup=0.010
+errors=0
+n=100003 CPU=0.064859 ms kernel=0.016864 ms operation=0.428573 ms
+resident-data speedup=3.846 operation speedup=0.151
+errors=0
+n=100003 CPU=0.034092 ms kernel=0.015040 ms operation=0.403247 ms
+resident-data speedup=2.267 operation speedup=0.085
+errors=0
+n=100003 CPU=0.034410 ms kernel=0.016192 ms operation=0.407518 ms
+resident-data speedup=2.125 operation speedup=0.084
+errors=0
+n=100003 CPU=0.035151 ms kernel=0.016288 ms operation=0.409878 ms
+resident-data speedup=2.158 operation speedup=0.086
+errors=0
+n=100003 CPU=0.032547 ms kernel=0.011520 ms operation=0.426051 ms
+resident-data speedup=2.825 operation speedup=0.076
+errors=0
+n=1000003 CPU=0.535838 ms kernel=0.049152 ms operation=3.006168 ms
+resident-data speedup=10.902 operation speedup=0.178
+errors=0
+n=1000003 CPU=0.549024 ms kernel=0.055680 ms operation=2.992210 ms
+resident-data speedup=9.860 operation speedup=0.183
+errors=0
+n=1000003 CPU=0.580133 ms kernel=0.049440 ms operation=2.884734 ms
+resident-data speedup=11.734 operation speedup=0.201
+errors=0
+n=1000003 CPU=0.614670 ms kernel=0.052544 ms operation=3.008196 ms
+resident-data speedup=11.698 operation speedup=0.204
+errors=0
+n=1000003 CPU=0.589074 ms kernel=0.053344 ms operation=3.002928 ms
+resident-data speedup=11.043 operation speedup=0.196
+errors=0
+n=10000003 CPU=8.455360 ms kernel=0.457600 ms operation=27.574878 ms
+resident-data speedup=18.478 operation speedup=0.307
+errors=0
+n=10000003 CPU=9.099922 ms kernel=0.457760 ms operation=25.817211 ms
+resident-data speedup=19.879 operation speedup=0.352
+errors=0
+n=10000003 CPU=8.843687 ms kernel=0.461952 ms operation=25.935463 ms
+resident-data speedup=19.144 operation speedup=0.341
+errors=0
+n=10000003 CPU=8.628091 ms kernel=0.456928 ms operation=27.062103 ms
+resident-data speedup=18.883 operation speedup=0.319
+errors=0
+n=10000003 CPU=8.876612 ms kernel=0.457408 ms operation=25.926273 ms
+resident-data speedup=19.406 operation speedup=0.342
+errors=0
+
+
+----- cell 25 [CODE] import re, statistics
+         n    CPU(ms)   kernel(ms)   oper(ms)    Sres     Sop
+      1003     0.0004       0.0082     0.0443    0.05    0.01
+    100003     0.0344       0.0162     0.4099    2.13    0.08
+   1000003     0.5801       0.0525     3.0029   11.04    0.19
+  10000003     8.8437       0.4576    25.9355   19.33    0.34
+
+
+===== cell 26 [MD] ## Exercise 5 — Grid-stride kernel, launch tuning, effective bandwidth =====
+
+----- cell 27 [CODE] %%writefile vector_gridstride.cu
+Overwriting vector_gridstride.cu
+
+
+----- cell 28 [CODE] !nvcc -std=c++17 -O3 -lineinfo -arch=native vector_gridstride.cu -o vector_gridstride
+n=1000003 blocks=128 threads=256 CPU=0.555515 ms kernel=0.054496 ms operation=2.838813 ms eff_bw=220.20 GB/s
+errors=0
+
+
+===== cell 29 [MD] ### Sweep: blocks × threads (all within device limits) =====
+
+----- cell 30 [CODE] %%bash
+n=1000003 blocks=64 threads=64 CPU=0.556370 ms kernel=0.167712 ms operation=3.003201 ms eff_bw=71.55 GB/s
+errors=0
+n=1000003 blocks=64 threads=64 CPU=0.575227 ms kernel=0.160416 ms operation=3.130407 ms eff_bw=74.81 GB/s
+errors=0
+n=1000003 blocks=64 threads=64 CPU=0.590648 ms kernel=0.168640 ms operation=3.187119 ms eff_bw=71.16 GB/s
+errors=0
+n=1000003 blocks=64 threads=128 CPU=0.595062 ms kernel=0.108160 ms operation=2.954062 ms eff_bw=110.95 GB/s
+errors=0
+n=1000003 blocks=64 threads=128 CPU=0.526377 ms kernel=0.100608 ms operation=2.970299 ms eff_bw=119.28 GB/s
+errors=0
+n=1000003 blocks=64 threads=128 CPU=0.636910 ms kernel=0.096288 ms operation=3.097613 ms eff_bw=124.63 GB/s
+errors=0
+n=1000003 blocks=64 threads=256 CPU=0.534273 ms kernel=0.058528 ms operation=2.902178 ms eff_bw=205.03 GB/s
+errors=0
+n=1000003 blocks=64 threads=256 CPU=0.573991 ms kernel=0.066656 ms operation=2.997327 ms eff_bw=180.03 GB/s
+errors=0
+n=1000003 blocks=64 threads=256 CPU=0.494236 ms kernel=0.062784 ms operation=3.034017 ms eff_bw=191.13 GB/s
+errors=0
+n=1000003 blocks=128 threads=64 CPU=0.594932 ms kernel=0.103424 ms operation=3.167659 ms eff_bw=116.03 GB/s
+errors=0
+n=1000003 blocks=128 threads=64 CPU=0.493310 ms kernel=0.098592 ms operation=3.048506 ms eff_bw=121.71 GB/s
+errors=0
+n=1000003 blocks=128 threads=64 CPU=0.486201 ms kernel=0.091808 ms operation=3.101031 ms eff_bw=130.71 GB/s
+errors=0
+n=1000003 blocks=128 threads=128 CPU=0.547662 ms kernel=0.066272 ms operation=3.108862 ms eff_bw=181.07 GB/s
+errors=0
+n=1000003 blocks=128 threads=128 CPU=0.654400 ms kernel=0.063840 ms operation=2.970412 ms eff_bw=187.97 GB/s
+errors=0
+n=1000003 blocks=128 threads=128 CPU=0.623684 ms kernel=0.059680 ms operation=3.095357 ms eff_bw=201.07 GB/s
+errors=0
+n=1000003 blocks=128 threads=256 CPU=0.560829 ms kernel=0.056608 ms operation=2.803961 ms eff_bw=211.98 GB/s
+errors=0
+n=1000003 blocks=128 threads=256 CPU=0.605435 ms kernel=0.053312 ms operation=3.005436 ms eff_bw=225.09 GB/s
+errors=0
+n=1000003 blocks=128 threads=256 CPU=0.605771 ms kernel=0.053408 ms operation=2.878836 ms eff_bw=224.69 GB/s
+errors=0
+n=1000003 blocks=256 threads=64 CPU=0.492639 ms kernel=0.069568 ms operation=3.027342 ms eff_bw=172.49 GB/s
+errors=0
+n=1000003 blocks=256 threads=64 CPU=0.542372 ms kernel=0.066976 ms operation=3.053299 ms eff_bw=179.17 GB/s
+errors=0
+n=1000003 blocks=256 threads=64 CPU=0.592913 ms kernel=0.069184 ms operation=3.074454 ms eff_bw=173.45 GB/s
+errors=0
+n=1000003 blocks=256 threads=128 CPU=0.492159 ms kernel=0.050144 ms operation=2.946065 ms eff_bw=239.31 GB/s
+errors=0
+n=1000003 blocks=256 threads=128 CPU=0.612780 ms kernel=0.054688 ms operation=3.111315 ms eff_bw=219.43 GB/s
+errors=0
+n=1000003 blocks=256 threads=128 CPU=0.508222 ms kernel=0.056896 ms operation=2.908979 ms eff_bw=210.91 GB/s
+errors=0
+n=1000003 blocks=256 threads=256 CPU=0.585629 ms kernel=0.050656 ms operation=2.967671 ms eff_bw=236.89 GB/s
+errors=0
+n=1000003 blocks=256 threads=256 CPU=0.554326 ms kernel=0.055136 ms operation=2.997019 ms eff_bw=217.64 GB/s
+errors=0
+n=1000003 blocks=256 threads=256 CPU=0.564617 ms kernel=0.052992 ms operation=3.073463 ms eff_bw=226.45 GB/s
+errors=0
+
+
+----- cell 31 [CODE] import re, statistics
+ blocks  threads  kernel(ms)     GB/s
+    256      256      0.0530   226.45
+    128      256      0.0534   224.69
+    256      128      0.0547   219.43
+     64      256      0.0628   191.13
+    128      128      0.0638   187.97
+    256       64      0.0692   173.45
+    128       64      0.0986   121.71
+     64      128      0.1006   119.28
+     64       64      0.1677    71.55
+
+
+===== cell 32 [MD] ## Exercise 6 — Reduction with shared memory =====
+
+----- cell 33 [CODE] %%writefile reduce_sum.cu
+Overwriting reduce_sum.cu
+
+
+----- cell 34 [CODE] !nvcc -std=c++17 -O3 -lineinfo -arch=native reduce_sum.cu -o reduce_sum
+n=1000003 expected=3000003 result=3000003 match=yes
+
+
+===== cell 35 [MD] ### Edge sizes =====
+
+----- cell 36 [CODE] %%bash
+n=1 expected=0 result=0 match=yes
+n=255 expected=759 result=759 match=yes
+n=256 expected=762 result=762 match=yes
+n=257 expected=766 result=766 match=yes
+n=1000003 expected=3000003 result=3000003 match=yes
+
+
+===== cell 37 [MD] ## Exercise 7 — Matrix multiplication: naive vs tiled =====
+
+----- cell 38 [CODE] %%writefile matrix_mul.cu
+Overwriting matrix_mul.cu
+
+
+----- cell 39 [CODE] !nvcc -std=c++17 -O3 -lineinfo -arch=native matrix_mul.cu -o matrix_mul
+M=127 K=130 N=129 errors=0 max_error=0.000e+00
+
+
+----- cell 40 [CODE] %%writefile matrix_mul_tiled.cu
+Overwriting matrix_mul_tiled.cu
+
+
+----- cell 41 [CODE] !nvcc -std=c++17 -O3 -lineinfo -arch=native matrix_mul_tiled.cu -o matrix_mul_tiled
+TILED M=127 K=130 N=129 errors=0 max_error=0.000e+00
+
+
+===== cell 42 [MD] ### Timed comparison on square sizes (warm-up outside, CUDA events, 5 runs) =====
+
+----- cell 43 [CODE] %%writefile matrix_bench.cu
+Overwriting matrix_bench.cu
+
+
+----- cell 44 [CODE] %%bash
+naive N=128 kernel=0.028992 ms GFLOP/s=144.671 errors=0
+naive N=256 kernel=0.162624 ms GFLOP/s=206.331 errors=0
+naive N=512 kernel=1.152128 ms GFLOP/s=232.991 errors=0
+
+
+----- cell 45 [CODE] import re, statistics
+ variant     N  kernel(ms)   GFLOP/s  errors
+   naive   128      0.0290    144.67       0
+   naive   256      0.1626    206.33       0
+   naive   512      1.1521    232.99       0
+
+
+===== cell 46 [MD] ## Exercise 8 — Diagnostics (optional) =====
+
+----- cell 47 [CODE] !which compute-sanitizer >/dev/null 2>&1 && for p in "./vector_add" "./reduce_sum" "./matr
+== memcheck ./vector_add
+n=1000003 blocks=3907 threads=256 errors=0
+first=0.00 last=9.25
+========= ERROR SUMMARY: 0 errors
+== memcheck ./reduce_sum
+========= COMPUTE-SANITIZER
+n=1000003 expected=3000003 result=3000003 match=yes
+========= ERROR SUMMARY: 0 errors
+== memcheck ./matrix_mul_tiled
+========= COMPUTE-SANITIZER
+TILED M=127 K=130 N=129 errors=0 max_error=0.000e+00
+========= ERROR SUMMARY: 0 errors
+
+
+===== cell 48 [MD] ### Controlled bug experiments (optional) =====
+
+----- cell 49 [CODE] !cp vector_add.cu vector_add_buggy.cu
+[no output]
+
+----- cell 50 [CODE] !nvcc -std=c++17 -O3 -lineinfo -arch=native -DN_VAL=257 vector_add_buggy.cu -o vector_add_
+=========         Host Frame: main [0x8dbb] in vector_add_buggy
+========= 
+vector_add_buggy.cu:36: CUDA error: unspecified launch failure
+========= Target application returned an error
+========= ERROR SUMMARY: 97 errors
+--- restoring ---
+
+
+===== cell 51 [MD] **Bug 2:** remove the first `__syncthreads()` in a reduction *copy*, run racecheck, then r =====
+
+----- cell 52 [CODE] !cp reduce_sum.cu reduce_sum_buggy.cu
+=========     and Write access at block_sum(const int *, int *, int)+0x100 in reduce_sum_buggy.cu:16 [2000384 hazards]
+========= 
+n=1000003 expected=3000003 result=2644645 match=no
+========= Target application returned an error
+========= RACECHECK SUMMARY: 1 hazard displayed (1 error, 0 warnings)
+--- originals untouched; rerun the Exercise 3/6 cells to confirm ---
+
+
+===== cell 53 [MD] ## Mini-project — 2D five-point stencil =====
+
+----- cell 54 [CODE] %%writefile stencil.cu
+Overwriting stencil.cu
+
+
+----- cell 55 [CODE] !nvcc -std=c++17 -O3 -lineinfo -arch=native stencil.cu -o stencil
+stencil H=257 W=259 steps=10
+CPU 10 steps: 1.559 ms
+GPU resident : kernel-all-steps=0.061 ms transfer-inclusive=0.238 ms errors=0
+GPU per-step : transfer-inclusive=1.562 ms errors=0
+
+
+===== cell 56 [MD] ### Larger sizes =====
+
+----- cell 57 [CODE] !./stencil 1024 1024 20
+stencil H=1024 W=1024 steps=20
+CPU 20 steps: 50.648 ms
+GPU resident : kernel-all-steps=0.936 ms transfer-inclusive=3.103 ms errors=0
+GPU per-step : transfer-inclusive=36.014 ms errors=0
+
+
+===== cell 58 [MD] ## Done — what to send back =====

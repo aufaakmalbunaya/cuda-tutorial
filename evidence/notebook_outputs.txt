@@ -1,0 +1,885 @@
+
+===== cell 0 [MD] # GPU Programming Tutorial — CUDA C++ (Kaggle) =====
+
+===== cell 1 [MD] ## 0. Environment check =====
+
+----- cell 2 [CODE] !nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv
+name, memory.total [MiB], driver_version
+Tesla T4, 15360 MiB, 580.178.04
+Tesla T4, 15360 MiB, 580.178.04
+Cuda compilation tools, release 12.8, V12.8.93
+Build cuda_12.8.r12.8/compiler.35583870_0
+
+
+===== cell 3 [MD] ## Shared header (create once) =====
+
+----- cell 4 [CODE] %%writefile cuda_check.cuh
+Overwriting cuda_check.cuh
+
+
+===== cell 5 [MD] ## Exercise 1 — Inspect the available GPU =====
+
+----- cell 6 [CODE] %%writefile device_info.cu
+Overwriting device_info.cu
+
+
+----- cell 7 [CODE] !nvcc -std=c++17 -O3 -lineinfo -arch=native device_info.cu -o device_info
+Device: Tesla T4
+Compute capability: 7.5
+SM count: 40
+Warp size: 32
+Maximum threads per block: 1024
+Global memory: 14.56 GiB
+Shared memory per block: 49152 bytes
+
+
+===== cell 8 [MD] ## Exercise 2 — Launch a first kernel =====
+
+----- cell 9 [CODE] %%writefile hello_gpu.cu
+Overwriting hello_gpu.cu
+
+
+----- cell 10 [CODE] !nvcc -std=c++17 -O3 -lineinfo -arch=native hello_gpu.cu -o hello_gpu
+block=2 local=0 global=16
+block=2 local=1 global=17
+block=2 local=2 global=18
+block=2 local=3 global=19
+block=0 local=0 global=0
+block=0 local=1 global=1
+block=0 local=2 global=2
+block=0 local=3 global=3
+block=0 local=4 global=4
+block=0 local=5 global=5
+block=0 local=6 global=6
+block=0 local=7 global=7
+block=1 local=0 global=8
+block=1 local=1 global=9
+block=1 local=2 global=10
+block=1 local=3 global=11
+block=1 local=4 global=12
+block=1 local=5 global=13
+block=1 local=6 global=14
+block=1 local=7 global=15
+Host: the kernel has finished.
+
+
+===== cell 11 [MD] ### Variant: n=17, threads=16 (predict: 2 blocks, 32 threads launched, 17 active =====
+
+----- cell 12 [CODE] %%writefile hello_gpu_17.cu
+Overwriting hello_gpu_17.cu
+
+
+----- cell 13 [CODE] !nvcc -std=c++17 -O3 -lineinfo -arch=native hello_gpu_17.cu -o hello_gpu_17
+n=17 threads=16 blocks=2 launched=32
+block=1 local=0 global=16
+block=0 local=0 global=0
+block=0 local=1 global=1
+block=0 local=2 global=2
+block=0 local=3 global=3
+block=0 local=4 global=4
+block=0 local=5 global=5
+block=0 local=6 global=6
+block=0 local=7 global=7
+block=0 local=8 global=8
+block=0 local=9 global=9
+block=0 local=10 global=10
+block=0 local=11 global=11
+block=0 local=12 global=12
+block=0 local=13 global=13
+block=0 local=14 global=14
+block=0 local=15 global=15
+Host: the kernel has finished.
+
+
+===== cell 14 [MD] ## Exercise 3 — Vector add with explicit device memory =====
+
+----- cell 15 [CODE] %%writefile vector_add.cu
+Overwriting vector_add.cu
+
+
+----- cell 16 [CODE] !nvcc -std=c++17 -O3 -lineinfo -arch=native vector_add.cu -o vector_add
+n=1000003 blocks=3907 threads=256 errors=0
+first=0.00 last=9.25
+
+
+===== cell 17 [MD] ### Edge sizes (recompile per size, as the tutorial asks) =====
+
+----- cell 18 [CODE] !for n in 1 255 256 257 1000003; do nvcc -std=c++17 -O3 -lineinfo -arch=native -
+n=10000003 blocks=39063 threads=256 errors=0
+first=0.00 last=30.50
+n=10000003 blocks=39063 threads=256 errors=0
+first=0.00 last=30.50
+n=10000003 blocks=39063 threads=256 errors=0
+first=0.00 last=30.50
+n=10000003 blocks=39063 threads=256 errors=0
+first=0.00 last=30.50
+n=10000003 blocks=39063 threads=256 errors=0
+first=0.00 last=30.50
+
+
+===== cell 19 [MD] ### Modification: c[i] = 2*a[i] + b[i] =====
+
+----- cell 20 [CODE] %%writefile vector_add_alpha.cu
+Overwriting vector_add_alpha.cu
+
+
+----- cell 21 [CODE] !nvcc -std=c++17 -O3 -lineinfo -arch=native vector_add_alpha.cu -o vector_add_al
+alpha=2: n=1000003 blocks=3907 threads=256 errors=0
+
+
+===== cell 22 [MD] ## Exercise 4 — Kernel time vs transfer-inclusive time =====
+
+----- cell 23 [CODE] %%writefile vector_benchmark.cu
+Overwriting vector_benchmark.cu
+
+
+----- cell 24 [CODE] !for n in 1003 100003 1000003 10000003; do nvcc -std=c++17 -O3 -lineinfo -arch=n
+n=10000003 CPU=8.968601 ms kernel=0.459424 ms operation=26.145592 ms
+resident-data speedup=19.521 operation speedup=0.343
+errors=0
+n=10000003 CPU=8.784431 ms kernel=0.455712 ms operation=25.904714 ms
+resident-data speedup=19.276 operation speedup=0.339
+errors=0
+n=10000003 CPU=8.237796 ms kernel=0.456384 ms operation=25.917711 ms
+resident-data speedup=18.050 operation speedup=0.318
+errors=0
+n=10000003 CPU=8.793719 ms kernel=0.455232 ms operation=25.787505 ms
+resident-data speedup=19.317 operation speedup=0.341
+errors=0
+n=10000003 CPU=8.306918 ms kernel=0.454304 ms operation=25.685651 ms
+resident-data speedup=18.285 operation speedup=0.323
+errors=0
+n=10000003 CPU=8.271338 ms kernel=0.459264 ms operation=25.863922 ms
+resident-data speedup=18.010 operation speedup=0.320
+errors=0
+n=10000003 CPU=8.336966 ms kernel=0.455360 ms operation=25.745224 ms
+resident-data speedup=18.309 operation speedup=0.324
+errors=0
+n=10000003 CPU=8.820465 ms kernel=0.458016 ms operation=25.595201 ms
+resident-data speedup=19.258 operation speedup=0.345
+errors=0
+n=10000003 CPU=8.406042 ms kernel=0.461056 ms operation=25.820083 ms
+resident-data speedup=18.232 operation speedup=0.326
+errors=0
+n=10000003 CPU=8.277623 ms kernel=0.455232 ms operation=25.725774 ms
+resident-data speedup=18.183 operation speedup=0.322
+errors=0
+n=10000003 CPU=8.246352 ms kernel=0.460608 ms operation=25.557280 ms
+resident-data speedup=17.903 operation speedup=0.323
+errors=0
+n=10000003 CPU=8.379078 ms kernel=0.455168 ms operation=25.888746 ms
+resident-data speedup=18.409 operation speedup=0.324
+errors=0
+n=10000003 CPU=8.057838 ms kernel=0.452928 ms operation=25.764454 ms
+resident-data speedup=17.791 operation speedup=0.313
+errors=0
+n=10000003 CPU=8.176809 ms kernel=0.459712 ms operation=25.494630 ms
+resident-data speedup=17.787 operation speedup=0.321
+errors=0
+n=10000003 CPU=8.121676 ms kernel=0.459136 ms operation=25.530635 ms
+resident-data speedup=17.689 operation speedup=0.318
+errors=0
+n=10000003 CPU=8.408886 ms kernel=0.458016 ms operation=25.819353 ms
+resident-data speedup=18.359 operation speedup=0.326
+errors=0
+n=10000003 CPU=8.730871 ms kernel=0.459360 ms operation=26.041637 ms
+resident-data speedup=19.007 operation speedup=0.335
+errors=0
+n=10000003 CPU=8.541306 ms kernel=0.456352 ms operation=25.719887 ms
+resident-data speedup=18.716 operation speedup=0.332
+errors=0
+n=10000003 CPU=9.128898 ms kernel=0.460128 ms operation=25.844983 ms
+resident-data speedup=19.840 operation speedup=0.353
+errors=0
+n=10000003 CPU=8.737897 ms kernel=0.460864 ms operation=27.466613 ms
+resident-data speedup=18.960 operation speedup=0.318
+errors=0
+
+
+----- cell 25 [CODE] import re, statistics
+         n    CPU(ms)   kernel(ms)   oper(ms)    Sres     Sop
+  10000003     8.3926       0.4580    25.8034   18.32    0.33
+
+
+===== cell 26 [MD] ## Exercise 5 — Grid-stride kernel, launch tuning, effective bandwidth =====
+
+----- cell 27 [CODE] %%writefile vector_gridstride.cu
+Overwriting vector_gridstride.cu
+
+
+----- cell 28 [CODE] !nvcc -std=c++17 -O3 -lineinfo -arch=native vector_gridstride.cu -o vector_grids
+n=1000003 blocks=128 threads=256 CPU=0.504837 ms kernel=0.051008 ms operation=2.833536 ms eff_bw=235.26 GB/s
+errors=0
+
+
+===== cell 29 [MD] ### Sweep: blocks × threads (all within device limits) =====
+
+----- cell 30 [CODE] !for b in 64 128 256; do for t in 64 128 256; do nvcc -std=c++17 -O3 -lineinfo -
+n=1000003 blocks=64 threads=64 CPU=0.607305 ms kernel=0.170688 ms operation=2.917868 ms eff_bw=70.30 GB/s
+errors=0
+n=1000003 blocks=64 threads=64 CPU=0.569079 ms kernel=0.156352 ms operation=3.029392 ms eff_bw=76.75 GB/s
+errors=0
+n=1000003 blocks=64 threads=64 CPU=0.524641 ms kernel=0.154528 ms operation=2.934154 ms eff_bw=77.66 GB/s
+errors=0
+n=1000003 blocks=64 threads=64 CPU=0.573167 ms kernel=0.171040 ms operation=2.912725 ms eff_bw=70.16 GB/s
+errors=0
+n=1000003 blocks=64 threads=64 CPU=0.515390 ms kernel=0.144000 ms operation=2.901849 ms eff_bw=83.33 GB/s
+errors=0
+n=1000003 blocks=64 threads=64 CPU=0.552207 ms kernel=0.142016 ms operation=2.908157 ms eff_bw=84.50 GB/s
+errors=0
+n=1000003 blocks=64 threads=64 CPU=0.486719 ms kernel=0.172832 ms operation=2.955949 ms eff_bw=69.43 GB/s
+errors=0
+n=1000003 blocks=64 threads=64 CPU=0.519010 ms kernel=0.144832 ms operation=3.019611 ms eff_bw=82.85 GB/s
+errors=0
+n=1000003 blocks=64 threads=64 CPU=0.511405 ms kernel=0.137440 ms operation=2.942558 ms eff_bw=87.31 GB/s
+errors=0
+n=1000003 blocks=64 threads=64 CPU=0.528155 ms kernel=0.153632 ms operation=3.117620 ms eff_bw=78.11 GB/s
+errors=0
+n=1000003 blocks=64 threads=64 CPU=0.542361 ms kernel=0.149184 ms operation=2.939978 ms eff_bw=80.44 GB/s
+errors=0
+n=1000003 blocks=64 threads=64 CPU=0.521448 ms kernel=0.135840 ms operation=2.979035 ms eff_bw=88.34 GB/s
+errors=0
+n=1000003 blocks=64 threads=64 CPU=0.682595 ms kernel=0.156384 ms operation=2.937873 ms eff_bw=76.73 GB/s
+errors=0
+n=1000003 blocks=64 threads=64 CPU=0.518564 ms kernel=0.153504 ms operation=3.144037 ms eff_bw=78.17 GB/s
+errors=0
+n=1000003 blocks=64 threads=64 CPU=0.544023 ms kernel=0.134784 ms operation=3.311900 ms eff_bw=89.03 GB/s
+errors=0
+n=1000003 blocks=64 threads=64 CPU=0.551292 ms kernel=0.172384 ms operation=2.996436 ms eff_bw=69.61 GB/s
+errors=0
+n=1000003 blocks=64 threads=64 CPU=0.523592 ms kernel=0.153632 ms operation=2.898634 ms eff_bw=78.11 GB/s
+errors=0
+n=1000003 blocks=64 threads=64 CPU=0.511241 ms kernel=0.156672 ms operation=2.932492 ms eff_bw=76.59 GB/s
+errors=0
+n=1000003 blocks=64 threads=64 CPU=0.494526 ms kernel=0.174400 ms operation=2.967154 ms eff_bw=68.81 GB/s
+errors=0
+n=1000003 blocks=64 threads=64 CPU=0.532970 ms kernel=0.144128 ms operation=2.889357 ms eff_bw=83.26 GB/s
+errors=0
+n=1000003 blocks=64 threads=64 CPU=0.573971 ms kernel=0.144224 ms operation=2.913187 ms eff_bw=83.20 GB/s
+errors=0
+n=1000003 blocks=64 threads=64 CPU=0.559931 ms kernel=0.169280 ms operation=2.962329 ms eff_bw=70.89 GB/s
+errors=0
+n=1000003 blocks=64 threads=64 CPU=0.525897 ms kernel=0.150784 ms operation=2.991978 ms eff_bw=79.58 GB/s
+errors=0
+n=1000003 blocks=64 threads=64 CPU=0.557441 ms kernel=0.143904 ms operation=2.890024 ms eff_bw=83.39 GB/s
+errors=0
+n=1000003 blocks=64 threads=64 CPU=0.562539 ms kernel=0.165536 ms operation=2.939695 ms eff_bw=72.49 GB/s
+errors=0
+n=1000003 blocks=64 threads=64 CPU=0.508840 ms kernel=0.154432 ms operation=2.926699 ms eff_bw=77.70 GB/s
+errors=0
+n=1000003 blocks=64 threads=64 CPU=0.523854 ms kernel=0.147808 ms operation=3.040066 ms eff_bw=81.19 GB/s
+errors=0
+
+
+----- cell 31 [CODE] import re, statistics
+ blocks  threads  kernel(ms)     GB/s
+     64       64      0.1536    78.11
+
+
+===== cell 32 [MD] ## Exercise 6 — Reduction with shared memory =====
+
+----- cell 33 [CODE] %%writefile reduce_sum.cu
+Overwriting reduce_sum.cu
+
+
+----- cell 34 [CODE] !nvcc -std=c++17 -O3 -lineinfo -arch=native reduce_sum.cu -o reduce_sum
+n=1000003 expected=3000003 result=3000003 match=yes
+
+
+===== cell 35 [MD] ### Edge sizes =====
+
+----- cell 36 [CODE] !for n in 1 255 256 257 1000003; do nvcc -std=c++17 -O3 -lineinfo -arch=native -
+n=10000003 expected=30000006 result=30000006 match=yes
+n=10000003 expected=30000006 result=30000006 match=yes
+n=10000003 expected=30000006 result=30000006 match=yes
+n=10000003 expected=30000006 result=30000006 match=yes
+n=10000003 expected=30000006 result=30000006 match=yes
+
+
+===== cell 37 [MD] ## Exercise 7 — Matrix multiplication: naive vs tiled =====
+
+----- cell 38 [CODE] %%writefile matrix_mul.cu
+Overwriting matrix_mul.cu
+
+
+----- cell 39 [CODE] !nvcc -std=c++17 -O3 -lineinfo -arch=native matrix_mul.cu -o matrix_mul
+M=127 K=130 N=129 errors=0 max_error=0.000e+00
+
+
+----- cell 40 [CODE] %%writefile matrix_mul_tiled.cu
+Overwriting matrix_mul_tiled.cu
+
+
+----- cell 41 [CODE] !nvcc -std=c++17 -O3 -lineinfo -arch=native matrix_mul_tiled.cu -o matrix_mul_ti
+TILED M=127 K=130 N=129 errors=0 max_error=0.000e+00
+
+
+===== cell 42 [MD] ### Timed comparison on square sizes (warm-up outside, CUDA events, 5 runs) =====
+
+----- cell 43 [CODE] %%writefile matrix_bench.cu
+Overwriting matrix_bench.cu
+
+
+----- cell 44 [CODE] !for n in 128 256 512; do nvcc -std=c++17 -O3 -lineinfo -arch=native -DN_VAL=$n 
+matrix_bench.cu(61): warning #61-D: integer operation result is out of range
+      std::vector<float> a(m * k), b(k * n), c(m * n);
+                             ^
+
+Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+
+matrix_bench.cu(61): warning #61-D: integer operation result is out of range
+      std::vector<float> a(m * k), b(k * n), c(m * n);
+                                       ^
+
+matrix_bench.cu(61): warning #61-D: integer operation result is out of range
+      std::vector<float> a(m * k), b(k * n), c(m * n);
+                                                 ^
+
+matrix_bench.cu(62): warning #61-D: integer operation result is out of range
+      for (int i = 0; i < m * k; ++i) a[i] = ((i % 17) - 8) * 0.125f;
+                            ^
+
+matrix_bench.cu(63): warning #61-D: integer operation result is out of range
+      for (int i = 0; i < k * n; ++i) b[i] = ((i % 13) - 6) * 0.0625f;
+                            ^
+
+matrix_bench.cu(105): warning #61-D: integer operation result is out of range
+      for (int idx = 0; idx < m * n; ++idx) {
+                                ^
+
+matrix_bench.cu(61): warning #61-D: integer operation result is out of range
+      std::vector<float> a(m * k), b(k * n), c(m * n);
+                             ^
+
+Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+
+matrix_bench.cu(61): warning #61-D: integer operation result is out of range
+      std::vector<float> a(m * k), b(k * n), c(m * n);
+                                       ^
+
+matrix_bench.cu(61): warning #61-D: integer operation result is out of range
+      std::vector<float> a(m * k), b(k * n), c(m * n);
+                                                 ^
+
+matrix_bench.cu(62): warning #61-D: integer operation result is out of range
+      for (int i = 0; i < m * k; ++i) a[i] = ((i % 17) - 8) * 0.125f;
+                            ^
+
+matrix_bench.cu(63): warning #61-D: integer operation result is out of range
+      for (int i = 0; i < k * n; ++i) b[i] = ((i % 13) - 6) * 0.0625f;
+                            ^
+
+matrix_bench.cu(105): warning #61-D: integer operation result is out of range
+      for (int idx = 0; idx < m * n; ++idx) {
+                                ^
+
+matrix_bench.cu: In function ‘int main()’:
+matrix_bench.cu:61:26: warning: integer overflow in expression of type ‘int’ results in ‘336447241’ [-Woverflow]
+   61 |     std::vector<float> a(m * k), b(k * n), c(m * n);
+      |                        ~~^~~
+matrix_bench.cu:61:36: warning: integer overflow in expression of type ‘int’ results in ‘336447241’ [-Woverflow]
+   61 |     std::vector<float> a(m * k), b(k * n), c(m * n);
+      |                                  ~~^~~
+matrix_bench.cu:61:46: warning: integer overflow in expression of type ‘int’ results in ‘336447241’ [-Woverflow]
+   61 |     std::vector<float> a(m * k), b(k * n), c(m * n);
+      |                                            ~~^~~
+matrix_bench.cu:62:24: warning: integer overflow in expression of type ‘int’ results in ‘336447241’ [-Woverflow]
+   62 |     for (int i = 0; i < m * k; ++i) a[i] = ((i % 17) - 8) * 0.125f;
+      |                      ~~^~~
+matrix_bench.cu:63:24: warning: integer overflow in expression of type ‘int’ results in ‘336447241’ [-Woverflow]
+   63 |     for (int i = 0; i < k * n; ++i) b[i] = ((i % 13) - 6) * 0.0625f;
+      |                      ~~^~~
+matrix_bench.cu:105:28: warning: integer overflow in expression of type ‘int’ results in ‘336447241’ [-Woverflow]
+  105 |     for (int idx = 0; idx < m * n; ++idx) {
+      |                          ~~^~~
+matrix_bench.cu:109:64: warning: iteration 215 invokes undefined behavior [-Waggressive-loop-optimizations]
+  109 |             reference += static_cast<double>(a[row * k + q]) * b[q * n + col];
+      |                                                             ~~~^~~~
+matrix_bench.cu:108:19: note: within this loop
+  108 |         for (int q = 0; q < k; ++q) {
+      |                 ~~^~~
+matrix_bench.cu(61): warning #61-D: integer operation result is out of range
+      std::vector<float> a(m * k), b(k * n), c(m * n);
+                             ^
+
+Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+
+matrix_bench.cu(61): warning #61-D: integer operation result is out of range
+      std::vector<float> a(m * k), b(k * n), c(m * n);
+                                       ^
+
+matrix_bench.cu(61): warning #61-D: integer operation result is out of range
+      std::vector<float> a(m * k), b(k * n), c(m * n);
+                                                 ^
+
+matrix_bench.cu(62): warning #61-D: integer operation result is out of range
+      for (int i = 0; i < m * k; ++i) a[i] = ((i % 17) - 8) * 0.125f;
+                            ^
+
+matrix_bench.cu(63): warning #61-D: integer operation result is out of range
+      for (int i = 0; i < k * n; ++i) b[i] = ((i % 13) - 6) * 0.0625f;
+                            ^
+
+matrix_bench.cu(105): warning #61-D: integer operation result is out of range
+      for (int idx = 0; idx < m * n; ++idx) {
+                                ^
+
+matrix_bench.cu(61): warning #61-D: integer operation result is out of range
+      std::vector<float> a(m * k), b(k * n), c(m * n);
+                             ^
+
+Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+
+matrix_bench.cu(61): warning #61-D: integer operation result is out of range
+      std::vector<float> a(m * k), b(k * n), c(m * n);
+                                       ^
+
+matrix_bench.cu(61): warning #61-D: integer operation result is out of range
+      std::vector<float> a(m * k), b(k * n), c(m * n);
+                                                 ^
+
+matrix_bench.cu(62): warning #61-D: integer operation result is out of range
+      for (int i = 0; i < m * k; ++i) a[i] = ((i % 17) - 8) * 0.125f;
+                            ^
+
+matrix_bench.cu(63): warning #61-D: integer operation result is out of range
+      for (int i = 0; i < k * n; ++i) b[i] = ((i % 13) - 6) * 0.0625f;
+                            ^
+
+matrix_bench.cu(105): warning #61-D: integer operation result is out of range
+      for (int idx = 0; idx < m * n; ++idx) {
+                                ^
+
+matrix_bench.cu: In function ‘int main()’:
+matrix_bench.cu:61:26: warning: integer overflow in expression of type ‘int’ results in ‘336447241’ [-Woverflow]
+   61 |     std::vector<float> a(m * k), b(k * n), c(m * n);
+      |                        ~~^~~
+matrix_bench.cu:61:36: warning: integer overflow in expression of type ‘int’ results in ‘336447241’ [-Woverflow]
+   61 |     std::vector<float> a(m * k), b(k * n), c(m * n);
+      |                                  ~~^~~
+matrix_bench.cu:61:46: warning: integer overflow in expression of type ‘int’ results in ‘336447241’ [-Woverflow]
+   61 |     std::vector<float> a(m * k), b(k * n), c(m * n);
+      |                                            ~~^~~
+matrix_bench.cu:62:24: warning: integer overflow in expression of type ‘int’ results in ‘336447241’ [-Woverflow]
+   62 |     for (int i = 0; i < m * k; ++i) a[i] = ((i % 17) - 8) * 0.125f;
+      |                      ~~^~~
+matrix_bench.cu:63:24: warning: integer overflow in expression of type ‘int’ results in ‘336447241’ [-Woverflow]
+   63 |     for (int i = 0; i < k * n; ++i) b[i] = ((i % 13) - 6) * 0.0625f;
+      |                      ~~^~~
+matrix_bench.cu:105:28: warning: integer overflow in expression of type ‘int’ results in ‘336447241’ [-Woverflow]
+  105 |     for (int idx = 0; idx < m * n; ++idx) {
+      |                          ~~^~~
+matrix_bench.cu:109:64: warning: iteration 215 invokes undefined behavior [-Waggressive-loop-optimizations]
+  109 |             reference += static_cast<double>(a[row * k + q]) * b[q * n + col];
+      |                                                             ~~~^~~~
+matrix_bench.cu:108:19: note: within this loop
+  108 |         for (int q = 0; q < k; ++q) {
+      |                 ~~^~~
+matrix_bench.cu:83: CUDA error: invalid configuration argument
+matrix_bench.cu:83: CUDA error: invalid configuration argument
+matrix_bench.cu:83: CUDA error: invalid configuration argument
+matrix_bench.cu:83: CUDA error: invalid configuration argument
+matrix_bench.cu:83: CUDA error: invalid configuration argument
+matrix_bench.cu:83: CUDA error: invalid configuration argument
+matrix_bench.cu:83: CUDA error: invalid configuration argument
+matrix_bench.cu:83: CUDA error: invalid configuration argument
+matrix_bench.cu:83: CUDA error: invalid configuration argument
+matrix_bench.cu:83: CUDA error: invalid configuration argument
+matrix_bench.cu(61): warning #61-D: integer operation result is out of range
+      std::vector<float> a(m * k), b(k * n), c(m * n);
+                             ^
+
+Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+
+matrix_bench.cu(61): warning #61-D: integer operation result is out of range
+      std::vector<float> a(m * k), b(k * n), c(m * n);
+                                       ^
+
+matrix_bench.cu(61): warning #61-D: integer operation result is out of range
+      std::vector<float> a(m * k), b(k * n), c(m * n);
+                                                 ^
+
+matrix_bench.cu(62): warning #61-D: integer operation result is out of range
+      for (int i = 0; i < m * k; ++i) a[i] = ((i % 17) - 8) * 0.125f;
+                            ^
+
+matrix_bench.cu(63): warning #61-D: integer operation result is out of range
+      for (int i = 0; i < k * n; ++i) b[i] = ((i % 13) - 6) * 0.0625f;
+                            ^
+
+matrix_bench.cu(105): warning #61-D: integer operation result is out of range
+      for (int idx = 0; idx < m * n; ++idx) {
+                                ^
+
+matrix_bench.cu(61): warning #61-D: integer operation result is out of range
+      std::vector<float> a(m * k), b(k * n), c(m * n);
+                             ^
+
+Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+
+matrix_bench.cu(61): warning #61-D: integer operation result is out of range
+      std::vector<float> a(m * k), b(k * n), c(m * n);
+                                       ^
+
+matrix_bench.cu(61): warning #61-D: integer operation result is out of range
+      std::vector<float> a(m * k), b(k * n), c(m * n);
+                                                 ^
+
+matrix_bench.cu(62): warning #61-D: integer operation result is out of range
+      for (int i = 0; i < m * k; ++i) a[i] = ((i % 17) - 8) * 0.125f;
+                            ^
+
+matrix_bench.cu(63): warning #61-D: integer operation result is out of range
+      for (int i = 0; i < k * n; ++i) b[i] = ((i % 13) - 6) * 0.0625f;
+                            ^
+
+matrix_bench.cu(105): warning #61-D: integer operation result is out of range
+      for (int idx = 0; idx < m * n; ++idx) {
+                                ^
+
+matrix_bench.cu: In function ‘int main()’:
+matrix_bench.cu:61:26: warning: integer overflow in expression of type ‘int’ results in ‘336447241’ [-Woverflow]
+   61 |     std::vector<float> a(m * k), b(k * n), c(m * n);
+      |                        ~~^~~
+matrix_bench.cu:61:36: warning: integer overflow in expression of type ‘int’ results in ‘336447241’ [-Woverflow]
+   61 |     std::vector<float> a(m * k), b(k * n), c(m * n);
+      |                                  ~~^~~
+matrix_bench.cu:61:46: warning: integer overflow in expression of type ‘int’ results in ‘336447241’ [-Woverflow]
+   61 |     std::vector<float> a(m * k), b(k * n), c(m * n);
+      |                                            ~~^~~
+matrix_bench.cu:62:24: warning: integer overflow in expression of type ‘int’ results in ‘336447241’ [-Woverflow]
+   62 |     for (int i = 0; i < m * k; ++i) a[i] = ((i % 17) - 8) * 0.125f;
+      |                      ~~^~~
+matrix_bench.cu:63:24: warning: integer overflow in expression of type ‘int’ results in ‘336447241’ [-Woverflow]
+   63 |     for (int i = 0; i < k * n; ++i) b[i] = ((i % 13) - 6) * 0.0625f;
+      |                      ~~^~~
+matrix_bench.cu:105:28: warning: integer overflow in expression of type ‘int’ results in ‘336447241’ [-Woverflow]
+  105 |     for (int idx = 0; idx < m * n; ++idx) {
+      |                          ~~^~~
+matrix_bench.cu:109:64: warning: iteration 215 invokes undefined behavior [-Waggressive-loop-optimizations]
+  109 |             reference += static_cast<double>(a[row * k + q]) * b[q * n + col];
+      |                                                             ~~~^~~~
+matrix_bench.cu:108:19: note: within this loop
+  108 |         for (int q = 0; q < k; ++q) {
+      |                 ~~^~~
+matrix_bench.cu(61): warning #61-D: integer operation result is out of range
+      std::vector<float> a(m * k), b(k * n), c(m * n);
+                             ^
+
+Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+
+matrix_bench.cu(61): warning #61-D: integer operation result is out of range
+      std::vector<float> a(m * k), b(k * n), c(m * n);
+                                       ^
+
+matrix_bench.cu(61): warning #61-D: integer operation result is out of range
+      std::vector<float> a(m * k), b(k * n), c(m * n);
+                                                 ^
+
+matrix_bench.cu(62): warning #61-D: integer operation result is out of range
+      for (int i = 0; i < m * k; ++i) a[i] = ((i % 17) - 8) * 0.125f;
+                            ^
+
+matrix_bench.cu(63): warning #61-D: integer operation result is out of range
+      for (int i = 0; i < k * n; ++i) b[i] = ((i % 13) - 6) * 0.0625f;
+                            ^
+
+matrix_bench.cu(105): warning #61-D: integer operation result is out of range
+      for (int idx = 0; idx < m * n; ++idx) {
+                                ^
+
+matrix_bench.cu(61): warning #61-D: integer operation result is out of range
+      std::vector<float> a(m * k), b(k * n), c(m * n);
+                             ^
+
+Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+
+matrix_bench.cu(61): warning #61-D: integer operation result is out of range
+      std::vector<float> a(m * k), b(k * n), c(m * n);
+                                       ^
+
+matrix_bench.cu(61): warning #61-D: integer operation result is out of range
+      std::vector<float> a(m * k), b(k * n), c(m * n);
+                                                 ^
+
+matrix_bench.cu(62): warning #61-D: integer operation result is out of range
+      for (int i = 0; i < m * k; ++i) a[i] = ((i % 17) - 8) * 0.125f;
+                            ^
+
+matrix_bench.cu(63): warning #61-D: integer operation result is out of range
+      for (int i = 0; i < k * n; ++i) b[i] = ((i % 13) - 6) * 0.0625f;
+                            ^
+
+matrix_bench.cu(105): warning #61-D: integer operation result is out of range
+      for (int idx = 0; idx < m * n; ++idx) {
+                                ^
+
+matrix_bench.cu: In function ‘int main()’:
+matrix_bench.cu:61:26: warning: integer overflow in expression of type ‘int’ results in ‘336447241’ [-Woverflow]
+   61 |     std::vector<float> a(m * k), b(k * n), c(m * n);
+      |                        ~~^~~
+matrix_bench.cu:61:36: warning: integer overflow in expression of type ‘int’ results in ‘336447241’ [-Woverflow]
+   61 |     std::vector<float> a(m * k), b(k * n), c(m * n);
+      |                                  ~~^~~
+matrix_bench.cu:61:46: warning: integer overflow in expression of type ‘int’ results in ‘336447241’ [-Woverflow]
+   61 |     std::vector<float> a(m * k), b(k * n), c(m * n);
+      |                                            ~~^~~
+matrix_bench.cu:62:24: warning: integer overflow in expression of type ‘int’ results in ‘336447241’ [-Woverflow]
+   62 |     for (int i = 0; i < m * k; ++i) a[i] = ((i % 17) - 8) * 0.125f;
+      |                      ~~^~~
+matrix_bench.cu:63:24: warning: integer overflow in expression of type ‘int’ results in ‘336447241’ [-Woverflow]
+   63 |     for (int i = 0; i < k * n; ++i) b[i] = ((i % 13) - 6) * 0.0625f;
+      |                      ~~^~~
+matrix_bench.cu:105:28: warning: integer overflow in expression of type ‘int’ results in ‘336447241’ [-Woverflow]
+  105 |     for (int idx = 0; idx < m * n; ++idx) {
+      |                          ~~^~~
+matrix_bench.cu:109:64: warning: iteration 215 invokes undefined behavior [-Waggressive-loop-optimizations]
+  109 |             reference += static_cast<double>(a[row * k + q]) * b[q * n + col];
+      |                                                             ~~~^~~~
+matrix_bench.cu:108:19: note: within this loop
+  108 |         for (int q = 0; q < k; ++q) {
+      |                 ~~^~~
+matrix_bench.cu:83: CUDA error: invalid configuration argument
+matrix_bench.cu:83: CUDA error: invalid configuration argument
+matrix_bench.cu:83: CUDA error: invalid configuration argument
+matrix_bench.cu:83: CUDA error: invalid configuration argument
+matrix_bench.cu:83: CUDA error: invalid configuration argument
+matrix_bench.cu:83: CUDA error: invalid configuration argument
+matrix_bench.cu:83: CUDA error: invalid configuration argument
+matrix_bench.cu:83: CUDA error: invalid configuration argument
+matrix_bench.cu:83: CUDA error: invalid configuration argument
+matrix_bench.cu:83: CUDA error: invalid configuration argument
+matrix_bench.cu(61): warning #61-D: integer operation result is out of range
+      std::vector<float> a(m * k), b(k * n), c(m * n);
+                             ^
+
+Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+
+matrix_bench.cu(61): warning #61-D: integer operation result is out of range
+      std::vector<float> a(m * k), b(k * n), c(m * n);
+                                       ^
+
+matrix_bench.cu(61): warning #61-D: integer operation result is out of range
+      std::vector<float> a(m * k), b(k * n), c(m * n);
+                                                 ^
+
+matrix_bench.cu(62): warning #61-D: integer operation result is out of range
+      for (int i = 0; i < m * k; ++i) a[i] = ((i % 17) - 8) * 0.125f;
+                            ^
+
+matrix_bench.cu(63): warning #61-D: integer operation result is out of range
+      for (int i = 0; i < k * n; ++i) b[i] = ((i % 13) - 6) * 0.0625f;
+                            ^
+
+matrix_bench.cu(105): warning #61-D: integer operation result is out of range
+      for (int idx = 0; idx < m * n; ++idx) {
+                                ^
+
+matrix_bench.cu(61): warning #61-D: integer operation result is out of range
+      std::vector<float> a(m * k), b(k * n), c(m * n);
+                             ^
+
+Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+
+matrix_bench.cu(61): warning #61-D: integer operation result is out of range
+      std::vector<float> a(m * k), b(k * n), c(m * n);
+                                       ^
+
+matrix_bench.cu(61): warning #61-D: integer operation result is out of range
+      std::vector<float> a(m * k), b(k * n), c(m * n);
+                                                 ^
+
+matrix_bench.cu(62): warning #61-D: integer operation result is out of range
+      for (int i = 0; i < m * k; ++i) a[i] = ((i % 17) - 8) * 0.125f;
+                            ^
+
+matrix_bench.cu(63): warning #61-D: integer operation result is out of range
+      for (int i = 0; i < k * n; ++i) b[i] = ((i % 13) - 6) * 0.0625f;
+                            ^
+
+matrix_bench.cu(105): warning #61-D: integer operation result is out of range
+      for (int idx = 0; idx < m * n; ++idx) {
+                                ^
+
+matrix_bench.cu: In function ‘int main()’:
+matrix_bench.cu:61:26: warning: integer overflow in expression of type ‘int’ results in ‘336447241’ [-Woverflow]
+   61 |     std::vector<float> a(m * k), b(k * n), c(m * n);
+      |                        ~~^~~
+matrix_bench.cu:61:36: warning: integer overflow in expression of type ‘int’ results in ‘336447241’ [-Woverflow]
+   61 |     std::vector<float> a(m * k), b(k * n), c(m * n);
+      |                                  ~~^~~
+matrix_bench.cu:61:46: warning: integer overflow in expression of type ‘int’ results in ‘336447241’ [-Woverflow]
+   61 |     std::vector<float> a(m * k), b(k * n), c(m * n);
+      |                                            ~~^~~
+matrix_bench.cu:62:24: warning: integer overflow in expression of type ‘int’ results in ‘336447241’ [-Woverflow]
+   62 |     for (int i = 0; i < m * k; ++i) a[i] = ((i % 17) - 8) * 0.125f;
+      |                      ~~^~~
+matrix_bench.cu:63:24: warning: integer overflow in expression of type ‘int’ results in ‘336447241’ [-Woverflow]
+   63 |     for (int i = 0; i < k * n; ++i) b[i] = ((i % 13) - 6) * 0.0625f;
+      |                      ~~^~~
+matrix_bench.cu:105:28: warning: integer overflow in expression of type ‘int’ results in ‘336447241’ [-Woverflow]
+  105 |     for (int idx = 0; idx < m * n; ++idx) {
+      |                          ~~^~~
+matrix_bench.cu:109:64: warning: iteration 215 invokes undefined behavior [-Waggressive-loop-optimizations]
+  109 |             reference += static_cast<double>(a[row * k + q]) * b[q * n + col];
+      |                                                             ~~~^~~~
+matrix_bench.cu:108:19: note: within this loop
+  108 |         for (int q = 0; q < k; ++q) {
+      |                 ~~^~~
+matrix_bench.cu(61): warning #61-D: integer operation result is out of range
+      std::vector<float> a(m * k), b(k * n), c(m * n);
+                             ^
+
+Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+
+matrix_bench.cu(61): warning #61-D: integer operation result is out of range
+      std::vector<float> a(m * k), b(k * n), c(m * n);
+                                       ^
+
+matrix_bench.cu(61): warning #61-D: integer operation result is out of range
+      std::vector<float> a(m * k), b(k * n), c(m * n);
+                                                 ^
+
+matrix_bench.cu(62): warning #61-D: integer operation result is out of range
+      for (int i = 0; i < m * k; ++i) a[i] = ((i % 17) - 8) * 0.125f;
+                            ^
+
+matrix_bench.cu(63): warning #61-D: integer operation result is out of range
+      for (int i = 0; i < k * n; ++i) b[i] = ((i % 13) - 6) * 0.0625f;
+                            ^
+
+matrix_bench.cu(105): warning #61-D: integer operation result is out of range
+      for (int idx = 0; idx < m * n; ++idx) {
+                                ^
+
+matrix_bench.cu(61): warning #61-D: integer operation result is out of range
+      std::vector<float> a(m * k), b(k * n), c(m * n);
+                             ^
+
+Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+
+matrix_bench.cu(61): warning #61-D: integer operation result is out of range
+      std::vector<float> a(m * k), b(k * n), c(m * n);
+                                       ^
+
+matrix_bench.cu(61): warning #61-D: integer operation result is out of range
+      std::vector<float> a(m * k), b(k * n), c(m * n);
+                                                 ^
+
+matrix_bench.cu(62): warning #61-D: integer operation result is out of range
+      for (int i = 0; i < m * k; ++i) a[i] = ((i % 17) - 8) * 0.125f;
+                            ^
+
+matrix_bench.cu(63): warning #61-D: integer operation result is out of range
+      for (int i = 0; i < k * n; ++i) b[i] = ((i % 13) - 6) * 0.0625f;
+                            ^
+
+matrix_bench.cu(105): warning #61-D: integer operation result is out of range
+      for (int idx = 0; idx < m * n; ++idx) {
+                                ^
+
+matrix_bench.cu: In function ‘int main()’:
+matrix_bench.cu:61:26: warning: integer overflow in expression of type ‘int’ results in ‘336447241’ [-Woverflow]
+   61 |     std::vector<float> a(m * k), b(k * n), c(m * n);
+      |                        ~~^~~
+matrix_bench.cu:61:36: warning: integer overflow in expression of type ‘int’ results in ‘336447241’ [-Woverflow]
+   61 |     std::vector<float> a(m * k), b(k * n), c(m * n);
+      |                                  ~~^~~
+matrix_bench.cu:61:46: warning: integer overflow in expression of type ‘int’ results in ‘336447241’ [-Woverflow]
+   61 |     std::vector<float> a(m * k), b(k * n), c(m * n);
+      |                                            ~~^~~
+matrix_bench.cu:62:24: warning: integer overflow in expression of type ‘int’ results in ‘336447241’ [-Woverflow]
+   62 |     for (int i = 0; i < m * k; ++i) a[i] = ((i % 17) - 8) * 0.125f;
+      |                      ~~^~~
+matrix_bench.cu:63:24: warning: integer overflow in expression of type ‘int’ results in ‘336447241’ [-Woverflow]
+   63 |     for (int i = 0; i < k * n; ++i) b[i] = ((i % 13) - 6) * 0.0625f;
+      |                      ~~^~~
+matrix_bench.cu:105:28: warning: integer overflow in expression of type ‘int’ results in ‘336447241’ [-Woverflow]
+  105 |     for (int idx = 0; idx < m * n; ++idx) {
+      |                          ~~^~~
+matrix_bench.cu:109:64: warning: iteration 215 invokes undefined behavior [-Waggressive-loop-optimizations]
+  109 |             reference += static_cast<double>(a[row * k + q]) * b[q * n + col];
+      |                                                             ~~~^~~~
+matrix_bench.cu:108:19: note: within this loop
+  108 |         for (int q = 0; q < k; ++q) {
+      |                 ~~^~~
+matrix_bench.cu:83: CUDA error: invalid configuration argument
+matrix_bench.cu:83: CUDA error: invalid configuration argument
+matrix_bench.cu:83: CUDA error: invalid configuration argument
+matrix_bench.cu:83: CUDA error: invalid configuration argument
+matrix_bench.cu:83: CUDA error: invalid configuration argument
+matrix_bench.cu:83: CUDA error: invalid configuration argument
+matrix_bench.cu:83: CUDA error: invalid configuration argument
+matrix_bench.cu:83: CUDA error: invalid configuration argument
+matrix_bench.cu:83: CUDA error: invalid configuration argument
+matrix_bench.cu:83: CUDA error: invalid configuration argument
+
+
+----- cell 45 [CODE] import re, statistics
+ variant     N  kernel(ms)   GFLOP/s  errors
+
+
+===== cell 46 [MD] ## Exercise 8 — Diagnostics (optional) =====
+
+----- cell 47 [CODE] !which compute-sanitizer >/dev/null 2>&1 && for p in "./vector_add" "./reduce_su
+== memcheck ./vector_add
+n=10000003 blocks=39063 threads=256 errors=0
+first=0.00 last=30.50
+========= ERROR SUMMARY: 0 errors
+== memcheck ./reduce_sum
+========= COMPUTE-SANITIZER
+n=10000003 expected=30000006 result=30000006 match=yes
+========= ERROR SUMMARY: 0 errors
+== memcheck ./matrix_mul_tiled
+========= COMPUTE-SANITIZER
+TILED M=127 K=130 N=129 errors=0 max_error=0.000e+00
+========= ERROR SUMMARY: 0 errors
+
+
+===== cell 48 [MD] ### Controlled bug experiments (optional) =====
+
+----- cell 49 [CODE, no output] !cp vector_add.cu vector_add_buggy.cu
+
+----- cell 50 [CODE] !nvcc -std=c++17 -O3 -lineinfo -arch=native -DN_VAL=257 vector_add_buggy.cu -o v
+========= 
+vector_add_buggy.cu:36: CUDA error: unspecified launch failure
+========= Target application returned an error
+========= ERROR SUMMARY: 128 errors
+========= ERROR SUMMARY: 28 errors were not printed. Use --print-limit option to adjust the number of printed errors
+--- restoring ---
+
+
+===== cell 51 [MD] **Bug 2:** remove the first `__syncthreads()` in a reduction *copy*, run raceche =====
+
+----- cell 52 [CODE] !cp reduce_sum.cu reduce_sum_buggy.cu
+=========     and Write access at block_sum(const int *, int *, int)+0x100 in reduce_sum_buggy.cu:16 [2000384 hazards]
+========= 
+n=1000003 expected=3000003 result=2651231 match=no
+========= Target application returned an error
+========= RACECHECK SUMMARY: 1 hazard displayed (1 error, 0 warnings)
+--- originals untouched; rerun the Exercise 3/6 cells to confirm ---
+
+
+===== cell 53 [MD] ## Mini-project — 2D five-point stencil =====
+
+----- cell 54 [CODE] %%writefile stencil.cu
+Writing stencil.cu
+
+
+----- cell 55 [CODE] !nvcc -std=c++17 -O3 -lineinfo -arch=native stencil.cu -o stencil
+stencil H=257 W=259 steps=10
+CPU 10 steps: 1.578 ms
+GPU resident : kernel-all-steps=0.064 ms transfer-inclusive=0.242 ms errors=0
+GPU per-step : transfer-inclusive=1.643 ms errors=0
+
+
+===== cell 56 [MD] ### Larger sizes =====
+
+----- cell 57 [CODE] !./stencil 1024 1024 20
+stencil H=1024 W=1024 steps=20
+CPU 20 steps: 49.337 ms
+GPU resident : kernel-all-steps=0.936 ms transfer-inclusive=2.876 ms errors=0
+GPU per-step : transfer-inclusive=37.042 ms errors=0
+
+
+===== cell 58 [MD] ## Done — what to send back =====
